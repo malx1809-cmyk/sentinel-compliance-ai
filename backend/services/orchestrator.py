@@ -84,3 +84,36 @@ def run_simulation(num_rounds: int = 5):
 
 if __name__ == "__main__":
     run_simulation(num_rounds=5)
+def run_simulation_stream(num_rounds: int = 5):
+    evader_feedback = "None yet"
+    detector_feedback = "None yet"
+
+    for round_num in range(1, num_rounds + 1):
+        risk_category = RISK_CATEGORIES[(round_num - 1) % len(RISK_CATEGORIES)]
+
+        evader_output = generate_evader_transaction(risk_category=risk_category, prior_feedback=evader_feedback)
+        if evader_output is None:
+            yield {"round": round_num, "outcome": "error", "risk_category": risk_category}
+            continue
+
+        detector_output = detect_transaction_risk(transaction=evader_output["transaction"], prior_feedback=detector_feedback)
+        if detector_output is None:
+            yield {"round": round_num, "outcome": "error", "risk_category": risk_category}
+            continue
+
+        verdict = adjudicate_round(evader_output, detector_output)
+        if verdict is None:
+            yield {"round": round_num, "outcome": "error", "risk_category": risk_category}
+            continue
+
+        evader_feedback = verdict["feedback_for_evader"]
+        detector_feedback = verdict["feedback_for_detector"]
+
+        yield {
+            "round": round_num,
+            "risk_category": risk_category,
+            "evader": evader_output,
+            "detector": detector_output,
+            "verdict": verdict,
+            "outcome": verdict["round_outcome"]
+        }
